@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>くいっく癒し ワンタップでねこちゃん・わんちゃんの写真表示</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#fdf4f2',
+              100: '#fbe8e5',
+              500: '#e07a5f',
+              600: '#cc6548',
+              700: '#b25237',
+            },
+            neutral: {
+              bg: '#f8f7f5',
+              card: '#ffffff',
+              text: '#2d3142',
+              sub: '#909399'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: #f8f7f5;
+      color: #2d3142;
+    }
+
+    .nowrap-text {
+      white-space: nowrap;
+      word-break: keep-all;
+    }
+
+    @keyframes shimmer {
+      100% { transform: translateX(100%); }
+    }
+    .shimmer-bg {
+      position: relative;
+      overflow: hidden;
+      background-color: #e5e7eb;
+    }
+    .shimmer-bg::after {
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      transform: translateX(-100%);
+      background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.4) 20%,
+        rgba(255, 255, 255, 0.6) 60%,
+        rgba(255, 255, 255, 0)
+      );
+      animation: shimmer 1.5s infinite;
+      content: '';
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col antialiased pb-24">
+
+  <header class="bg-white/80 backdrop-blur-md border-b border-stone-200/60 sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-3.5 flex items-center justify-between">
+
+      <div class="flex items-center gap-2.5 cursor-pointer select-none" onclick="switchView('gallery')">
+
+ <img src="logo.png" alt="くいっく癒し" class="w-9 h-9 object-contain">
+
+        <h1 class="text-lg md:text-xl font-bold text-stone-800 tracking-tight nowrap-text">
+          くいっく癒し
+        </h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 w-full flex-1">
+
+    <div id="view-gallery" class="space-y-6">
+
+      <div class="flex justify-center">
+        <div class="bg-stone-200/70 p-1 rounded-2xl flex gap-1 w-full max-w-sm">
+          <button id="tab-cat" onclick="setMode('cat')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm bg-white text-stone-800 nowrap-text">
+            <i class="fa-solid fa-cat text-primary-500"></i>
+            <span>猫</span>
+          </button>
+          <button id="tab-both" onclick="setMode('both')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1.5 text-stone-600 hover:text-stone-900 nowrap-text">
+            <i class="fa-solid fa-icons text-primary-500"></i>
+            <span>両方</span>
+          </button>
+          <button id="tab-dog" onclick="setMode('dog')" class="flex-1 py-2 px-3 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1.5 text-stone-600 hover:text-stone-900 nowrap-text">
+            <i class="fa-solid fa-dog text-primary-500"></i>
+            <span>犬</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="photo-container" class="grid grid-cols-1 gap-6 max-w-xl mx-auto">
+
+      </div>
+
+      <div class="bg-white p-4 md:p-5 rounded-3xl shadow-sm border border-stone-200/60 max-w-xl mx-auto space-y-4">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+
+          <button id="fetch-btn" onclick="fetchPhotos()" class="w-full sm:w-auto flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 px-6 rounded-2xl shadow-md shadow-primary-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm md:text-base cursor-pointer nowrap-text">
+            <i class="fa-solid fa-rotate-right" id="fetch-icon"></i>
+            <span>次の写真を見る</span>
+          </button>
+
+          <div class="flex items-center justify-between w-full sm:w-auto bg-stone-50 px-3.5 py-2 rounded-2xl border border-stone-200/60 gap-3">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-play text-stone-400 text-xs"></i>
+              <span class="text-xs font-medium text-stone-600 nowrap-text">自動再生</span>
+            </div>
+
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="slideshow-toggle" onchange="toggleSlideshow()" class="sr-only peer">
+              <div class="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
+            </label>
+
+            <select id="slideshow-interval" onchange="updateInterval()" class="bg-white border border-stone-200 text-stone-700 text-xs rounded-lg p-1 focus:ring-1 focus:ring-primary-500 focus:outline-none">
+              <option value="3000">3秒</option>
+              <option value="5000" selected>5秒</option>
+              <option value="10000">10秒</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="progress-container" class="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden hidden">
+          <div id="progress-bar" class="bg-primary-500 h-full w-0 transition-all duration-100 ease-linear"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-favorites" class="space-y-6 hidden">
+      <div class="flex items-center justify-between border-b border-stone-200 pb-3">
+        <div>
+          <h2 class="text-lg md:text-xl font-bold text-stone-800 nowrap-text">お気に入り一覧</h2>
+          <p class="text-xs text-stone-500 mt-0.5">保存した可愛い動物たちのコレクション</p>
+        </div>
+        <button onclick="clearAllFavorites()" id="clear-fav-btn" class="text-xs text-stone-400 hover:text-rose-500 transition underline flex items-center gap-1 hidden nowrap-text">
+          <i class="fa-solid fa-trash"></i> すべて削除
+        </button>
+      </div>
+
+      <div id="favorites-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+
+      </div>
+
+      <div id="favorites-empty" class="text-center py-16 bg-white rounded-3xl border border-dashed border-stone-200 p-8 space-y-3">
+        <div class="w-14 h-14 bg-primary-50 text-primary-500 rounded-full flex items-center justify-center mx-auto text-xl">
+          <i class="fa-solid fa-heart"></i>
+        </div>
+        <h3 class="font-bold text-stone-700 text-base">お気に入りがありません！</h3>
+        <p class="text-stone-400 text-xs max-w-xs mx-auto">写真のハートボタンを押すと、ここに保存されます。</p>
+        <button onclick="switchView('gallery')" class="inline-flex items-center gap-1.5 bg-primary-500 text-white text-xs font-medium px-4 py-2 rounded-xl hover:bg-primary-600 transition shadow-sm nowrap-text">
+          <i class="fa-solid fa-compass"></i> 写真を探しに行く
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2.5 text-xs z-50 opacity-0 pointer-events-none transition-all duration-300 transform translate-y-3 nowrap-text">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toast-message">メッセージ</span>
+  </div>
+
+  <footer class="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-stone-200/70 z-40">
+  <div class="max-w-4xl mx-auto grid grid-cols-2 h-16">
+
+    <button
+      id="nav-gallery-btn"
+      onclick="switchView('gallery')"
+      class="flex flex-col items-center justify-center gap-1 text-primary-600 bg-primary-50/70 transition"
+    >
+      <i class="fa-solid fa-images text-lg"></i>
+      <span class="text-[10px] font-bold">写真一覧</span>
+    </button>
+
+    <button
+      id="nav-favorites-btn"
+      onclick="switchView('favorites')"
+      class="flex flex-col items-center justify-center gap-1 text-stone-500 hover:bg-stone-50 transition relative"
+    >
+      <span class="relative">
+        <i class="fa-solid fa-heart text-lg text-rose-500"></i>
+        <span
+          id="fav-count-badge"
+          class="absolute -top-2 -right-3 bg-rose-500 text-white text-[9px] px-1.5 rounded-full font-bold hidden"
+        >0</span>
+      </span>
+      <span class="text-[10px] font-bold">お気に入り</span>
+    </button>
+
+  </div>
+</footer>
+
+  <script>
+    let currentMode = 'cat';
+    let favorites = JSON.parse(localStorage.getItem('wannyan_favorites') || '[]');
+    let slideshowIntervalId = null;
+    let progressIntervalId = null;
+    let isSlideshowActive = false;
+    let currentPhotos = [];
+
+    async function fetchCatPhoto() {
+      try {
+        const res = await fetch('https://api.thecatapi.com/v1/images/search?has_breeds=1');
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const item = data[0];
+          const breedName = (item.breeds && item.breeds.length > 0) ? item.breeds[0].name : '猫ちゃん';
+          return { id: 'cat_' + item.id, url: item.url, type: 'cat', title: breedName };
+        }
+      } catch (e) {}
+      const randomId = Math.floor(Math.random() * 100000);
+      return { id: 'cat_fallback_' + randomId, url: `https://cataas.com/cat?t=${randomId}`, type: 'cat', title: '猫ちゃん' };
+    }
+
+    async function fetchDogPhoto() {
+      try {
+        const res = await fetch('https://dog.ceo/api/breeds/image/random');
+        const data = await res.json();
+        if (data && data.status === 'success') {
+          const parts = data.message.split('/');
+          let breedName = 'ワンちゃん';
+          if (parts.length >= 5) {
+            const rawBreed = parts[parts.length - 2];
+            breedName = rawBreed.split('-').reverse().map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          }
+          return { id: 'dog_' + Math.random(), url: data.message, type: 'dog', title: breedName };
+        }
+      } catch (e) {}
+      return { id: 'dog_fallback_' + Date.now(), url: `https://images.dog.ceo/breeds/retriever-golden/n02099601_3000.jpg`, type: 'dog', title: 'ゴールデンレトリバー' };
+    }
+
+    function setMode(mode) {
+      if (currentMode === mode) return;
+      currentMode = mode;
+
+      const tabs = {
+        cat: document.getElementById('tab-cat'),
+        both: document.getElementById('tab-both'),
+        dog: document.getElementById('tab-dog')
+      };
+
+      Object.keys(tabs).forEach(key => {
+        if (key === mode) {
+          tabs[key].className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm bg-white text-stone-800 nowrap-text';
+        } else {
+          tabs[key].className = 'flex-1 py-2 px-3 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1.5 text-stone-600 hover:text-stone-900 nowrap-text';
+        }
+      });
+
+      const container = document.getElementById('photo-container');
+      if (mode === 'both') {
+        container.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto';
+      } else {
+        container.className = 'grid grid-cols-1 gap-4 max-w-xl mx-auto';
+      }
+
+      fetchPhotos();
+    }
+
+    async function fetchPhotos() {
+      const fetchBtn = document.getElementById('fetch-btn');
+      const fetchIcon = document.getElementById('fetch-icon');
+      const container = document.getElementById('photo-container');
+
+      resetProgressBar();
+      fetchIcon.classList.add('fa-spin');
+      fetchBtn.disabled = true;
+
+      const skeletonCard = `
+        <div class="bg-white rounded-3xl overflow-hidden shadow-sm border border-stone-200/60 flex flex-col">
+          <div class="w-full h-72 sm:h-80 shimmer-bg"></div>
+          <div class="p-3.5 flex justify-between items-center bg-white">
+            <div class="h-4 bg-stone-200 rounded w-1/3 shimmer-bg"></div>
+            <div class="h-7 bg-stone-200 rounded-full w-20 shimmer-bg"></div>
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = currentMode === 'both' ? skeletonCard + skeletonCard : skeletonCard;
+
+      try {
+        let photos = [];
+        if (currentMode === 'cat') {
+          photos.push(await fetchCatPhoto());
+        } else if (currentMode === 'dog') {
+          photos.push(await fetchDogPhoto());
+        } else {
+          const [cat, dog] = await Promise.all([fetchCatPhoto(), fetchDogPhoto()]);
+          photos.push(cat, dog);
+        }
+        currentPhotos = photos;
+        renderPhotos(photos);
+      } catch (err) {
+        showToast('取得に失敗しました', 'error');
+      } finally {
+        fetchIcon.classList.remove('fa-spin');
+        fetchBtn.disabled = false;
+      }
+    }
+
+    function renderPhotos(photos) {
+      const container = document.getElementById('photo-container');
+      container.innerHTML = '';
+
+      photos.forEach(photo => {
+        const isFav = favorites.some(f => f.url === photo.url);
+        const badgeLabel = photo.type === 'cat' ? '猫ちゃん' : 'ワンちゃん';
+        const badgeIcon = photo.type === 'cat' ? 'fa-cat' : 'fa-dog';
+
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-stone-200/60 flex flex-col group';
+        card.innerHTML = `
+          <div class="relative w-full h-72 sm:h-80 bg-stone-900 overflow-hidden flex items-center justify-center">
+            <img src="${photo.url}" alt="${photo.title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy"/>
+            <div class="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-stone-700 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-sm nowrap-text">
+              <i class="fa-solid ${badgeIcon} text-primary-500"></i>
+              <span>${badgeLabel}</span>
+            </div>
+            <div class="absolute top-3 right-3 flex gap-1.5">
+              <button onclick="downloadImage('${photo.url}')" class="w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md transition" title="保存">
+                <i class="fa-solid fa-download text-xs"></i>
+              </button>
+              <button onclick="shareImage('${photo.url}')" class="w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-md transition" title="共有">
+                <i class="fa-solid fa-share-nodes text-xs"></i>
+              </button>
+            </div>
+          </div>
+          <div class="p-3.5 bg-white flex items-center justify-between gap-2 border-t border-stone-100">
+            <div class="overflow-hidden">
+              <h3 class="font-bold text-stone-800 text-sm truncate">${photo.title}</h3>
+              <p class="text-[11px] text-stone-400">ランダムピックアップ</p>
+            </div>
+            <button onclick="toggleFavorite('${photo.id}', '${photo.url}', '${photo.type}', '${escapeQuotes(photo.title)}')" class="px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all ${isFav ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-stone-100 text-stone-600 hover:bg-rose-50 hover:text-rose-500'} nowrap-text">
+              <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart ${isFav ? 'text-rose-500 scale-110' : ''}"></i>
+              <span>${isFav ? '保存済み' : 'お気に入り'}</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function escapeQuotes(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function toggleFavorite(id, url, type, title) {
+      const index = favorites.findIndex(f => f.url === url);
+      if (index >= 0) {
+        favorites.splice(index, 1);
+        showToast('お気に入りから削除しました', 'info');
+      } else {
+        favorites.push({ id, url, type, title, savedAt: Date.now() });
+        showToast('お気に入りに保存しました', 'success');
+      }
+      localStorage.setItem('wannyan_favorites', JSON.stringify(favorites));
+      updateFavBadge();
+
+      if (document.getElementById('view-gallery').classList.contains('hidden')) {
+        renderFavorites();
+      } else {
+        renderPhotos(currentPhotos);
+      }
+    }
+
+    function updateFavBadge() {
+      const badge = document.getElementById('fav-count-badge');
+      if (favorites.length > 0) {
+        badge.textContent = favorites.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderFavorites() {
+      const grid = document.getElementById('favorites-grid');
+      const emptyState = document.getElementById('favorites-empty');
+      const clearBtn = document.getElementById('clear-fav-btn');
+
+      if (favorites.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        clearBtn.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      clearBtn.classList.remove('hidden');
+      grid.innerHTML = '';
+
+      favorites.slice().reverse().forEach(photo => {
+        const badgeIcon = photo.type === 'cat' ? 'fa-cat' : 'fa-dog';
+        const item = document.createElement('div');
+        item.className = 'bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-200/60 group relative flex flex-col';
+        item.innerHTML = `
+          <div class="relative w-full h-48 bg-stone-100 overflow-hidden">
+            <img src="${photo.url}" alt="${photo.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy"/>
+            <div class="absolute top-2.5 left-2.5 bg-white/90 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-sm nowrap-text">
+              <i class="fa-solid ${badgeIcon} text-primary-500"></i>
+            </div>
+            <button onclick="toggleFavorite('${photo.id}', '${photo.url}', '${photo.type}', '${escapeQuotes(photo.title)}')" class="absolute top-2.5 right-2.5 w-7 h-7 bg-white/80 hover:bg-white text-rose-500 rounded-full flex items-center justify-center shadow transition" title="削除">
+              <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+          <div class="p-3 flex items-center justify-between bg-white">
+            <span class="font-bold text-xs text-stone-700 truncate">${photo.title}</span>
+            <button onclick="downloadImage('${photo.url}')" class="text-stone-400 hover:text-stone-700 text-xs p-1">
+              <i class="fa-solid fa-download"></i>
+            </button>
+          </div>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    function clearAllFavorites() {
+      if (confirm('すべて削除しますか？')) {
+        favorites = [];
+        localStorage.setItem('wannyan_favorites', JSON.stringify(favorites));
+        updateFavBadge();
+        renderFavorites();
+        showToast('すべて削除しました', 'info');
+      }
+    }
+
+    function toggleSlideshow() {
+      const toggle = document.getElementById('slideshow-toggle');
+      isSlideshowActive = toggle.checked;
+
+      if (isSlideshowActive) {
+        startSlideshow();
+        showToast('自動再生を開始しました', 'info');
+      } else {
+        stopSlideshow();
+        showToast('自動再生を停止しました', 'info');
+      }
+    }
+
+    function startSlideshow() {
+      stopSlideshow();
+      const intervalTime = parseInt(document.getElementById('slideshow-interval').value, 10);
+      document.getElementById('progress-container').classList.remove('hidden');
+
+      startProgressBar(intervalTime);
+      slideshowIntervalId = setInterval(() => {
+        fetchPhotos();
+        startProgressBar(intervalTime);
+      }, intervalTime);
+    }
+
+    function stopSlideshow() {
+      if (slideshowIntervalId) clearInterval(slideshowIntervalId);
+      if (progressIntervalId) clearInterval(progressIntervalId);
+      document.getElementById('progress-container').classList.add('hidden');
+      resetProgressBar();
+    }
+
+    function updateInterval() {
+      if (isSlideshowActive) startSlideshow();
+    }
+
+    function startProgressBar(duration) {
+      const progressBar = document.getElementById('progress-bar');
+      resetProgressBar();
+      let elapsed = 0;
+      const step = 100;
+      progressIntervalId = setInterval(() => {
+        elapsed += step;
+        const percentage = Math.min((elapsed / duration) * 100, 100);
+        progressBar.style.width = `${percentage}%`;
+        if (elapsed >= duration) clearInterval(progressIntervalId);
+      }, step);
+    }
+
+    function resetProgressBar() {
+      if (progressIntervalId) clearInterval(progressIntervalId);
+      const progressBar = document.getElementById('progress-bar');
+      if (progressBar) progressBar.style.width = '0%';
+    }
+
+function switchView(viewName) {
+  const galleryView = document.getElementById('view-gallery');
+  const favoritesView = document.getElementById('view-favorites');
+  const navGalleryBtn = document.getElementById('nav-gallery-btn');
+  const navFavBtn = document.getElementById('nav-favorites-btn');
+
+  if (viewName === 'gallery') {
+    galleryView.classList.remove('hidden');
+    favoritesView.classList.add('hidden');
+
+    navGalleryBtn.className =
+      'flex flex-col items-center justify-center gap-1 text-primary-600 bg-primary-50/70 transition';
+
+    navFavBtn.className =
+      'flex flex-col items-center justify-center gap-1 text-stone-500 hover:bg-stone-50 transition relative';
+
+  } else {
+    galleryView.classList.add('hidden');
+    favoritesView.classList.remove('hidden');
+
+    navFavBtn.className =
+      'flex flex-col items-center justify-center gap-1 text-primary-600 bg-primary-50/70 transition relative';
+
+    navGalleryBtn.className =
+      'flex flex-col items-center justify-center gap-1 text-stone-500 hover:bg-stone-50 transition';
+
+    renderFavorites();
+  }
+}
+
+    async function downloadImage(url) {
+      try {
+        showToast('保存を準備中...', 'info');
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `wannyan_${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        showToast('保存しました', 'success');
+      } catch (e) {
+        window.open(url, '_blank');
+      }
+    }
+
+    function shareImage(url) {
+      if (navigator.share) {
+        navigator.share({ title: '動物の写真', url: url }).catch(() => {});
+      } else {
+        const dummy = document.createElement('textarea');
+        document.body.appendChild(dummy);
+        dummy.value = url;
+        dummy.select();
+        document.execCommand('copy');
+        document.body.removeChild(dummy);
+        showToast('URLをコピーしました', 'success');
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-message');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.textContent = message;
+      toastIcon.className = type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400';
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+      }, 3000);
+    }
+
+    window.onload = function() {
+      updateFavBadge();
+      fetchPhotos();
+    };
+  </script>
+</body>
+</html>
